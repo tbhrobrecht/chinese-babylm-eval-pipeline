@@ -39,6 +39,7 @@ def _parse_arguments():
     parser.add_argument("--non_causal_batch_size", default=64, type=int, help="Mini-batch size to process each batch of inputs involving masked tokens")
     parser.add_argument("--full_sentence_scores", action="store_true", help="Whether to use the entire sentence to calculate the sentence scores rather than just the completion. (Only implemented for EWoK)")
     parser.add_argument("--save_predictions", action="store_true", help="Whether or not to save predictions.")
+    parser.add_argument("--save_item_with_unk", action="store_true", help="Save items whose sentences contain UNK tokens to a JSONL file.")
 
     return parser.parse_args()
 
@@ -173,7 +174,7 @@ def main():
     model = get_model(args)
     dataloader = get_dataloader(args)
     temperatures = get_temperatures(args)
-    results, predictions = compute_results(args, model, dataloader, temperatures)
+    results, predictions, unk_items = compute_results(args, model, dataloader, temperatures)
 
     # Process results
     if "wug" in args.task:
@@ -197,6 +198,14 @@ def main():
     # Save predictions
     if args.save_predictions:
         save_predictions(args, predictions, best_temp)
+
+    # Save items containing UNK tokens
+    if args.save_item_with_unk and unk_items:
+        unk_path = args.output_path / "unk_items.jsonl"
+        with unk_path.open("w", encoding="utf-8") as f:
+            for item in unk_items:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        print(f"Saved {len(unk_items)} item(s) with UNK tokens to {unk_path}")
 
 
 if __name__ == "__main__":

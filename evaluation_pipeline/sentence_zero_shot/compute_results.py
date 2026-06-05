@@ -52,10 +52,16 @@ def update_subset_to_stats(subset_to_stats, metadatas):
                 temp_dict[key] = {"total" : Counter(), "correct" : Counter()}
 
 
-def rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions):
+def rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions, unk_items=None):
     """This function takes as input model log-probabilities for each candidate sentence/completion
     and ground-truth labels, determines the model predictions and updates the result and prediction dictionaries.
     """
+    # Collect items containing UNK tokens (temperature-independent)
+    if unk_items is not None:
+        for raw_sentence_dict, metadata, uid in zip(raw_sentences, metadatas, uids):
+            if raw_sentence_dict.get("has_unk", False):
+                unk_items.append({"sentences": raw_sentence_dict["sentences"], "UID": uid, **metadata})
+
     for temp, temp_dict in subset_to_stats.items():
         stacked_probs = torch.stack(all_log_probs[temp], dim=1)
         chosen_sentences = torch.max(stacked_probs, dim=1)[1].tolist()
@@ -105,6 +111,7 @@ def compute_causal_results(args, model, dataloader, temperatures):
     subset_to_stats = {temp : {} for temp in temperatures}
     predictions = {temp : defaultdict(list) for temp in subset_to_stats}
     final_predictions = {temp : {} for temp in subset_to_stats}
+    unk_items = []
     no_image = False
     if args.images_path is None:
         no_image = True
@@ -145,7 +152,7 @@ def compute_causal_results(args, model, dataloader, temperatures):
         if "wug" in args.task:
             rank_and_evaluate_wug(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
         else:
-            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
+            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions, unk_items)
 
     if args.save_predictions:
         for i in temperatures:
@@ -155,13 +162,14 @@ def compute_causal_results(args, model, dataloader, temperatures):
                 temp_pred[k]["predictions"] = v
             final_predictions[i] = temp_pred
 
-    return subset_to_stats, final_predictions
+    return subset_to_stats, final_predictions, unk_items
 
 
 def compute_mlm_results(args, model, dataloader, temperatures):
     subset_to_stats = {temp : {} for temp in temperatures}
     predictions = {temp : defaultdict(list) for temp in subset_to_stats}
     final_predictions = {temp : {} for temp in subset_to_stats}
+    unk_items = []
     no_image = False
     if args.images_path is None:
         no_image = True
@@ -231,7 +239,7 @@ def compute_mlm_results(args, model, dataloader, temperatures):
         if "wug" in args.task:
             rank_and_evaluate_wug(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
         else:
-            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
+            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions, unk_items)
 
     if args.save_predictions:
         for i in temperatures:
@@ -241,13 +249,14 @@ def compute_mlm_results(args, model, dataloader, temperatures):
                 temp_pred[k]["predictions"] = v
             final_predictions[i] = temp_pred
 
-    return subset_to_stats, final_predictions
+    return subset_to_stats, final_predictions, unk_items
 
 
 def compute_enc_dec_mask_results(args, model, dataloader, temperatures):
     subset_to_stats = {temp : {} for temp in temperatures}
     predictions = {temp : defaultdict(list) for temp in subset_to_stats}
     final_predictions = {temp : {} for temp in subset_to_stats}
+    unk_items = []
     no_image = False
     if args.images_path is None:
         no_image = True
@@ -318,7 +327,7 @@ def compute_enc_dec_mask_results(args, model, dataloader, temperatures):
         if "wug" in args.task:
             rank_and_evaluate_wug(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
         else:
-            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
+            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions, unk_items)
 
     if args.save_predictions:
         for i in temperatures:
@@ -328,13 +337,14 @@ def compute_enc_dec_mask_results(args, model, dataloader, temperatures):
                 temp_pred[k]["predictions"] = v
             final_predictions[i] = temp_pred
 
-    return subset_to_stats, final_predictions
+    return subset_to_stats, final_predictions, unk_items
 
 
 def compute_enc_dec_prefix_results(args, model, dataloader, temperatures):
     subset_to_stats = {temp : {} for temp in temperatures}
     predictions = {temp : defaultdict(list) for temp in subset_to_stats}
     final_predictions = {temp : {} for temp in subset_to_stats}
+    unk_items = []
     no_image = False
     if args.images_path is None:
         no_image = True
@@ -377,7 +387,7 @@ def compute_enc_dec_prefix_results(args, model, dataloader, temperatures):
         if "wug" in args.task:
             rank_and_evaluate_wug(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
         else:
-            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions)
+            rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, labels, metadatas, uids, predictions, unk_items)
 
     if args.save_predictions:
         for i in temperatures:
@@ -387,4 +397,4 @@ def compute_enc_dec_prefix_results(args, model, dataloader, temperatures):
                 temp_pred[k]["predictions"] = v
             final_predictions[i] = temp_pred
 
-    return subset_to_stats, final_predictions
+    return subset_to_stats, final_predictions, unk_items

@@ -36,6 +36,9 @@ tasks:
 eval_dir: evaluation_data   # where prepare_chinese_data.py puts data
 results_dir: results        # where eval results are written
 
+# Save items containing UNK tokens for hanzi track tasks
+save_item_with_unk: true
+
 # Fine-tuning hyperparameters
 # Global defaults are applied first; per-task overrides are merged on top.
 finetune_hparams:

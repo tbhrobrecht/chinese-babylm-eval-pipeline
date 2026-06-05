@@ -191,9 +191,9 @@ def _run(cmd, task_label):
         )
 
 
-def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir):
+def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk=False):
     data_dir = ZERO_SHOT_DATA_DIRS[task]
-    return [
+    cmd = [
         sys.executable, "-m", "evaluation_pipeline.sentence_zero_shot.run",
         "--model_path_or_name", model_path,
         "--backend", backend,
@@ -202,6 +202,9 @@ def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir):
         "--output_dir", results_dir,
         "--save_predictions",
     ]
+    if save_item_with_unk and task in ("hanzi_structure", "hanzi_pinyin"):
+        cmd.append("--save_item_with_unk")
+    return cmd
 
 
 def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir):
@@ -386,6 +389,8 @@ def cmd_eval(args):
     eval_dir    = cfg.get("eval_dir", "evaluation_data")
     results_dir = args.results_dir if args.results_dir else cfg.get("results_dir", "results")
 
+    save_item_with_unk = cfg.get("save_item_with_unk", False)
+
     hparams_cfg = cfg.get("finetune_hparams", {})
     task_overrides = hparams_cfg.pop("task_overrides", {}) or {}
     hparams_cfg.setdefault("lr",              3e-5)
@@ -419,7 +424,7 @@ def cmd_eval(args):
                 print(f"\n=== Skipping {stem} on {task} (result already exists). "
                       f"Use --force-redo to re-evaluate. ===")
                 continue
-            cmd = _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir)
+            cmd = _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk)
             _run(cmd, f"{stem} on {task}")
 
         for task in cogbench_tasks:
