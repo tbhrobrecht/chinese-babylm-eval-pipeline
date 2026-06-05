@@ -57,7 +57,7 @@ FINETUNE_SPECS = {
     "afqmc":       {"num_labels": 2,  "metrics": ["accuracy", "f1", "mcc"]},
     "ocnli":       {"num_labels": 3,  "metrics": ["accuracy"]},
     "tnews":       {"num_labels": 15, "metrics": ["accuracy"]},
-    "cluewsc2020": {"num_labels": 2,  "metrics": ["accuracy", "f1", "mcc"], "use_wsc_epochs": True},
+    "cluewsc2020": {"num_labels": 2,  "metrics": ["accuracy", "f1", "mcc"]},
 }
 
 # Zero-shot task → data directory name
@@ -191,9 +191,9 @@ def _run(cmd, task_label):
         )
 
 
-def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir):
+def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk=False):
     data_dir = ZERO_SHOT_DATA_DIRS[task]
-    return [
+    cmd = [
         sys.executable, "-m", "evaluation_pipeline.sentence_zero_shot.run",
         "--model_path_or_name", model_path,
         "--backend", backend,
@@ -202,6 +202,9 @@ def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir):
         "--output_dir", results_dir,
         "--save_predictions",
     ]
+    if save_item_with_unk and task in ("hanzi_structure", "hanzi_pinyin"):
+        cmd.append("--save_item_with_unk")
+    return cmd
 
 
 def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir):
@@ -219,7 +222,6 @@ def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir):
 def _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparams):
     spec = FINETUNE_SPECS[task]
     clue_dir = pathlib.Path(eval_dir) / "full_eval" / "clue"
-    epochs = hparams["wsc_epochs"] if spec.get("use_wsc_epochs") else hparams["max_epochs"]
 
     cmd = [
         sys.executable, "-m", "evaluation_pipeline.finetune.run",
@@ -231,7 +233,7 @@ def _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparam
         "--num_labels", str(spec["num_labels"]),
         "--batch_size", str(hparams["batch_size"]),
         "--learning_rate", str(hparams["lr"]),
-        "--num_epochs", str(epochs),
+        "--num_epochs", str(hparams["max_epochs"]),
         "--sequence_length", str(hparams["sequence_length"]),
         "--results_dir", results_dir,
         "--metrics", *spec["metrics"],
@@ -387,13 +389,15 @@ def cmd_eval(args):
     eval_dir    = cfg.get("eval_dir", "evaluation_data")
     results_dir = args.results_dir if args.results_dir else cfg.get("results_dir", "results")
 
-    hparams = cfg.get("finetune_hparams", {})
-    hparams.setdefault("lr",         3e-5)
-    hparams.setdefault("batch_size", 32)
-    hparams.setdefault("max_epochs", 10)
-    hparams.setdefault("wsc_epochs", 30)
-    hparams.setdefault("sequence_length", 128)
-    hparams.setdefault("seed",       42)
+    save_item_with_unk = cfg.get("save_item_with_unk", False)
+
+    hparams_cfg = cfg.get("finetune_hparams", {})
+    task_overrides = hparams_cfg.pop("task_overrides", {}) or {}
+    hparams_cfg.setdefault("lr",              3e-5)
+    hparams_cfg.setdefault("batch_size",      32)
+    hparams_cfg.setdefault("max_epochs",      10)
+    hparams_cfg.setdefault("sequence_length", 128)
+    hparams_cfg.setdefault("seed",            42)
 
     # ── Determine task lists (--tasks overrides config) ──────────────────────
     if args.tasks:
@@ -420,7 +424,7 @@ def cmd_eval(args):
                 print(f"\n=== Skipping {stem} on {task} (result already exists). "
                       f"Use --force-redo to re-evaluate. ===")
                 continue
-            cmd = _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir)
+            cmd = _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk)
             _run(cmd, f"{stem} on {task}")
 
         for task in cogbench_tasks:
@@ -436,6 +440,7 @@ def cmd_eval(args):
                 print(f"\n=== Skipping {stem} on {task} (result already exists). "
                       f"Use --force-redo to re-evaluate. ===")
                 continue
+            hparams = {**hparams_cfg, **task_overrides.get(task, {})}
             cmd = _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparams)
             _run(cmd, f"{stem} on {task}")
 
