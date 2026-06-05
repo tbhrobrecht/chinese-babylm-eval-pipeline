@@ -514,6 +514,16 @@ class CompletionRankingDataset(Dataset):
                         break
         sentence_dict["has_unk"] = has_unk
 
+        # Identify which specific characters map to UNK
+        if has_unk:
+            unk_chars = set()
+            for sent in sentence_dict["sentences"]:
+                for ch in sent:
+                    ids = self.tokenizer.encode(ch, add_special_tokens=False)
+                    if ids == [unk_id]:
+                        unk_chars.add(ch)
+            sentence_dict["unk_chars"] = sorted(unk_chars)
+
         return sentence_dict, processed_sentence_dict, label, metadata, uid
 
     def collate_fn(self: CompletionRankingDataset, batch: tuple[dict[str, list[str] | list[None]], int, dict[str, str], str, Image | None]):

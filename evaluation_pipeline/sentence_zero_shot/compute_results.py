@@ -60,7 +60,10 @@ def rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, label
     if unk_items is not None:
         for raw_sentence_dict, metadata, uid in zip(raw_sentences, metadatas, uids):
             if raw_sentence_dict.get("has_unk", False):
-                unk_items.append({"sentences": raw_sentence_dict["sentences"], "UID": uid, **metadata})
+                item = {"sentences": raw_sentence_dict["sentences"], "UID": uid, **metadata}
+                if "unk_chars" in raw_sentence_dict:
+                    item["unk_chars"] = raw_sentence_dict["unk_chars"]
+                unk_items.append(item)
 
     for temp, temp_dict in subset_to_stats.items():
         stacked_probs = torch.stack(all_log_probs[temp], dim=1)
