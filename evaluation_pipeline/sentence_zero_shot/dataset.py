@@ -497,6 +497,23 @@ class CompletionRankingDataset(Dataset):
         elif self.backend == "enc_dec_prefix":
             processed_sentence_dict = self.process_enc_dec_prefix_sentences(sentence_dict, image)
 
+        # Check whether any sentence contains UNK tokens
+        unk_id = self.tokenizer.unk_token_id
+        has_unk = False
+        if unk_id is not None:
+            for key, val in processed_sentence_dict.items():
+                if not key.endswith("_tokens"):
+                    continue
+                if isinstance(val, torch.Tensor):
+                    if (val == unk_id).any():
+                        has_unk = True
+                        break
+                elif isinstance(val, list):
+                    if any(isinstance(t, torch.Tensor) and (t == unk_id).any() for t in val):
+                        has_unk = True
+                        break
+        sentence_dict["has_unk"] = has_unk
+
         return sentence_dict, processed_sentence_dict, label, metadata, uid
 
     def collate_fn(self: CompletionRankingDataset, batch: tuple[dict[str, list[str] | list[None]], int, dict[str, str], str, Image | None]):

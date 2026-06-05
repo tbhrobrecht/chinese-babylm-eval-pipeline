@@ -62,6 +62,8 @@ def rank_and_evaluate(args, subset_to_stats, all_log_probs, raw_sentences, label
 
         for raw_sentence_dict, chosen_sentence, label, metadata, uid in zip(raw_sentences, chosen_sentences, labels, metadatas, uids):
             is_correct = chosen_sentence == label
+            if raw_sentence_dict.get("has_unk", False) and args.task in ("hanzi_structure", "hanzi_pinyin"):
+                is_correct = False
             for key, value in metadata.items():
                 temp_dict[key]["total"][value] += 1
                 temp_dict[key]["correct"][value] += 1 if is_correct else 0
