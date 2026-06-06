@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from typing import TYPE_CHECKING, Any
-from transformers import AutoModel, AutoConfig
+from transformers import AutoModel, AutoConfig, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModelForSeq2SeqLM
 from transformers.modeling_outputs import ModelOutput
 
 if TYPE_CHECKING:
@@ -72,15 +72,82 @@ class ModelForSequenceClassification(nn.Module):
                 last token to the classification head.
         """
         super().__init__()
-        self.transformer: nn.Module = AutoModel.from_pretrained(config.model_name_or_path, trust_remote_code=True, revision=config.revision_name)
         self.enc_dec: bool = config.enc_dec
         self.causal: bool = config.causal
         model_config = AutoConfig.from_pretrained(config.model_name_or_path, trust_remote_code=True, revision=config.revision_name)
+        self.transformer: nn.Module = self._load_transformer(config)
         if self.enc_dec:
             self.decoder_start_token_id = model_config.decoder_start_token_id
-        hidden_size = model_config.hidden_size
-        self.classifier: nn.Module = ClassifierHead(config, hidden_size)
+        self.hidden_size = model_config.hidden_size
+        self.classifier: nn.Module = ClassifierHead(config, self.hidden_size)
         self.take_final: bool = config.take_final
+
+    @staticmethod
+    def _load_transformer(config: Namespace) -> nn.Module:
+        kwargs = {
+            "trust_remote_code": True,
+            "revision": config.revision_name,
+        }
+        if config.enc_dec:
+            return AutoModelForSeq2SeqLM.from_pretrained(config.model_name_or_path, **kwargs)
+        if config.causal:
+            return AutoModelForCausalLM.from_pretrained(config.model_name_or_path, **kwargs)
+
+        try:
+            return AutoModel.from_pretrained(config.model_name_or_path, **kwargs)
+        except ValueError:
+            try:
+                return AutoModelForMaskedLM.from_pretrained(config.model_name_or_path, **kwargs)
+            except ValueError:
+                return AutoModelForCausalLM.from_pretrained(config.model_name_or_path, **kwargs)
+
+    @staticmethod
+    def _run_decoder_stack(model: nn.Module, input_data: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor | None:
+        if not all(hasattr(model, attr) for attr in ("token_embedding", "position_embedding", "blocks", "ln_f")):
+            return None
+
+        seq_len = input_data.size(1)
+        position_ids = torch.arange(seq_len, device=input_data.device).unsqueeze(0).expand_as(input_data)
+        hidden = model.token_embedding(input_data) + model.position_embedding(position_ids)
+        if hasattr(model, "dropout"):
+            hidden = model.dropout(hidden)
+        for block in model.blocks:
+            hidden = block(hidden, attention_mask=attention_mask)
+        return model.ln_f(hidden)
+
+    def _extract_encoding(
+        self,
+        output_transformer: Any,
+        input_data: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if type(output_transformer) is tuple:
+            encoding = output_transformer[0]
+        elif isinstance(output_transformer, ModelOutput):
+            if getattr(output_transformer, "decoder_hidden_states", None) is not None:
+                encoding = output_transformer.decoder_hidden_states[-1]
+            elif getattr(output_transformer, "hidden_states", None) is not None:
+                encoding = output_transformer.hidden_states[-1]
+            elif hasattr(output_transformer, "last_hidden_state"):
+                encoding = output_transformer.last_hidden_state
+            elif hasattr(output_transformer, "logits"):
+                encoding = output_transformer.logits
+            else:
+                raise TypeError("Unknown output fields for transformer model.")
+        else:
+            raise TypeError(f"Add support for output type: {type(output_transformer)}!")
+
+        if encoding.size(-1) == self.hidden_size:
+            return encoding
+
+        fallback = self._run_decoder_stack(self.transformer, input_data, attention_mask)
+        if fallback is not None:
+            return fallback
+
+        raise RuntimeError(
+            f"Expected hidden size {self.hidden_size}, but model returned {encoding.size(-1)}. "
+            "The model did not expose hidden states and no compatible decoder-stack fallback was found."
+        )
 
     def forward(self: ModelForSequenceClassification, input_data: torch.Tensor, attention_mask: torch.Tensor | None = None) -> torch.Tensor:
         """This function handles the forward call of the model. It
@@ -106,24 +173,22 @@ class ModelForSequenceClassification(nn.Module):
             batch_size = attention_mask.size(0)
             decoder_input_ids = input_data.new_full((batch_size, 1), self.decoder_start_token_id)
             decoder_attention_mask = attention_mask.new_ones((batch_size, 1))
-            output_transformer: Any = self.transformer(input_ids=input_data, attention_mask=attention_mask, decoder_input_ids=decoder_input_ids, decoder_attention_mask=decoder_attention_mask)
+            output_transformer: Any = self.transformer(
+                input_ids=input_data,
+                attention_mask=attention_mask,
+                decoder_input_ids=decoder_input_ids,
+                decoder_attention_mask=decoder_attention_mask,
+                output_hidden_states=True,
+                return_dict=True,
+            )
         else:
-            output_transformer = self.transformer(input_ids=input_data, attention_mask=attention_mask)
-        if type(output_transformer) is tuple:
-            encoding: torch.Tensor = output_transformer[0]
-        elif isinstance(output_transformer, ModelOutput):
-            if hasattr(output_transformer, "logits"):
-                encoding = output_transformer.logits
-            elif hasattr(output_transformer, "last_hidden_state"):
-                encoding = output_transformer.last_hidden_state
-            elif hasattr(output_transformer, "hidden_states"):
-                encoding = output_transformer.hidden_states[-1]
-            else:
-                print("Unknown name for output of the model!")
-                exit()
-        else:
-            print(f"Add support for output type: {type(output_transformer)}!")
-            exit()
+            output_transformer = self.transformer(
+                input_ids=input_data,
+                attention_mask=attention_mask,
+                output_hidden_states=True,
+                return_dict=True,
+            )
+        encoding = self._extract_encoding(output_transformer, input_data, attention_mask)
         if self.take_final and not self.enc_dec and not self.causal:
             transformer_output: torch.Tensor = encoding[:, -1]
         elif self.take_final and not self.enc_dec:

@@ -7,7 +7,7 @@
 #   path    — HuggingFace repo ID or local directory path
 #   backend — one of: causal, mlm, mntp, enc_dec_mask, enc_dec_prefix
 models:
-  - path: /home/haihu2/scratch/models/Qwen3-0.6B
+  - path: timorobrecht/full_chinese_gpu2
     backend: causal
   # - path: /path/to/local/model
   #   backend: mlm
@@ -35,6 +35,9 @@ tasks:
 # Directories
 eval_dir: evaluation_data   # where prepare_chinese_data.py puts data
 results_dir: results        # where eval results are written
+
+# Text representation passed to tokenizers: hanzi or encoded_hanzi
+input_representation: encoded_hanzi
 
 # Save items containing UNK tokens for hanzi track tasks
 save_item_with_unk: true

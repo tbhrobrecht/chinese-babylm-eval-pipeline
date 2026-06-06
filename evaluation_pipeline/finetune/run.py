@@ -7,6 +7,7 @@ import pathlib
 
 from evaluation_pipeline.finetune.trainer import Trainer
 from evaluation_pipeline.finetune.utils import seed_everything
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_CHOICES, INPUT_REPRESENTATION_HANZI
 
 from typing import TYPE_CHECKING
 
@@ -60,6 +61,14 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--causal", default=False, action=argparse.BooleanOptionalAction, help="Whether to use causal masking")
     parser.add_argument("--take_final", default=False, action=argparse.BooleanOptionalAction, help="Whether to take the last token rather than the first one.")
     parser.add_argument("--enc_dec", default=False, action=argparse.BooleanOptionalAction, help="Flag to indicate that the architecture is an encoder-decoder.")
+    parser.add_argument(
+        "--input-representation",
+        "--transliterate-to",
+        dest="input_representation",
+        default=INPUT_REPRESENTATION_HANZI,
+        choices=INPUT_REPRESENTATION_CHOICES,
+        help="Convert evaluation/fine-tuning text before tokenization.",
+    )
 
     # W&B parameters
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=False, help="Flag to activate W&B logging.")

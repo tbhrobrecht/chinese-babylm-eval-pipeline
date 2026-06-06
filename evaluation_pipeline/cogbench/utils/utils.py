@@ -1,7 +1,7 @@
 import torch
 from types import SimpleNamespace
 import inspect
-from transformers import AutoModel, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoModel, AutoModelForCausalLM, AutoModelForMaskedLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 ENC_DEC_BACKENDS = {"enc_dec_mask", "enc_dec_prefix"}
@@ -22,9 +22,43 @@ def _filter_forward_inputs(model, inputs: dict):
 		return dict(inputs)
 	return {key: value for key, value in inputs.items() if key in accepted_keys}
 
+
+def _run_decoder_stack(model, inputs: dict):
+	if not all(hasattr(model, attr) for attr in ("token_embedding", "position_embedding", "blocks", "ln_f")):
+		return None
+
+	input_ids = inputs.get("input_ids")
+	if input_ids is None:
+		return None
+
+	seq_len = input_ids.size(1)
+	position_ids = torch.arange(seq_len, device=input_ids.device).unsqueeze(0).expand_as(input_ids)
+	hidden = model.token_embedding(input_ids) + model.position_embedding(position_ids)
+	if hasattr(model, "dropout"):
+		hidden = model.dropout(hidden)
+	for block in model.blocks:
+		hidden = block(hidden, attention_mask=inputs.get("attention_mask"))
+	hidden = model.ln_f(hidden)
+	return SimpleNamespace(
+		hidden_states=(hidden,),
+		last_hidden_state=hidden,
+	)
+
 def get_model_and_tokenizer(model_path_or_name: str, revision_name: str | None = None, backend: str | None = None):
 	if backend in ENC_DEC_BACKENDS:
 		model = AutoModelForSeq2SeqLM.from_pretrained(
+			model_path_or_name,
+			trust_remote_code=True,
+			revision=revision_name,
+		)
+	elif backend == "causal":
+		model = AutoModelForCausalLM.from_pretrained(
+			model_path_or_name,
+			trust_remote_code=True,
+			revision=revision_name,
+		)
+	elif backend in {"mlm", "mntp"}:
+		model = AutoModelForMaskedLM.from_pretrained(
 			model_path_or_name,
 			trust_remote_code=True,
 			revision=revision_name,
@@ -87,4 +121,14 @@ def forward_for_representations(model, inputs: dict, backend: str | None = None)
 		)
 
 	forward_kwargs = _filter_forward_inputs(model, inputs)
-	return model(**forward_kwargs, output_hidden_states=True, return_dict=True)
+	outputs = model(**forward_kwargs, output_hidden_states=True, return_dict=True)
+	hidden_states = getattr(outputs, "hidden_states", None)
+	last_hidden_state = getattr(outputs, "last_hidden_state", None)
+	if hidden_states is not None or last_hidden_state is not None:
+		return outputs
+
+	fallback = _run_decoder_stack(model, inputs)
+	if fallback is not None:
+		return fallback
+
+	return outputs

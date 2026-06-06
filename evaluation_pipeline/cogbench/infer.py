@@ -4,6 +4,7 @@ import pathlib
 from .inference.infer_sentence import infer_sentence
 from .inference.infer_word import infer_word
 from .inference.infer_eye_tracking import infer_eye_tracking
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_HANZI
 
 def infer(args):
     """
@@ -13,6 +14,7 @@ def infer(args):
     backend = args.backend
     model_path_or_name = args.model_path_or_name
     datapath = args.data_path
+    input_representation = getattr(args, "input_representation", INPUT_REPRESENTATION_HANZI)
     output_root = pathlib.Path(args.output_dir)
     model_name = os.path.basename(os.path.normpath(model_path_or_name))
     revision_name = args.revision_name if args.revision_name is not None else "main"
@@ -28,6 +30,7 @@ def infer(args):
                 save_predictions=args.save_predictions,
                 revision_name=args.revision_name,
                 backend=backend,
+                input_representation=input_representation,
             )
         case "fmri" | "meg":
             return infer_sentence(
@@ -37,6 +40,7 @@ def infer(args):
                 save_predictions=args.save_predictions,
                 revision_name=args.revision_name,
                 backend=backend,
+                input_representation=input_representation,
             )
         case "eye_tracking":
             return infer_eye_tracking(
@@ -47,6 +51,7 @@ def infer(args):
                 revision_name=args.revision_name,
                 fast=args.fast,
                 backend=backend,
+                input_representation=input_representation,
             )
         case _:
             raise ValueError(f"Unsupported task: {task}")

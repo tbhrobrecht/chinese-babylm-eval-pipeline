@@ -11,6 +11,7 @@ import json
 from typing import TYPE_CHECKING
 
 from evaluation_pipeline.sentence_zero_shot.read_files import read_files
+from evaluation_pipeline.text_encoding import convert_completion_ranking_item, input_representation_from_args
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -21,6 +22,7 @@ class CompletionRankingDataset(Dataset):
 
     def __init__(self: CompletionRankingDataset, args: argparse.Namespace):
         self.backend: str = args.backend
+        self.input_representation = input_representation_from_args(args)
         try:
             self.processor: ProcessorMixin = AutoProcessor.from_pretrained(args.model_path_or_name, padding_side="right", revision=args.revision_name, trust_remote_code=True)
             self.tokenizer = self.processor.tokenizer if hasattr(self.processor, "tokenizer") else self.processor
@@ -43,6 +45,10 @@ class CompletionRankingDataset(Dataset):
 
         # Load and process the data
         self.data: list[dict[str, str | int | list[str] | list[None] | Image]] = read_files(args)
+        self.data = [
+            convert_completion_ranking_item(data_dict, self.input_representation)
+            for data_dict in self.data
+        ]
 
     def __len__(self: CompletionRankingDataset):
         return len(self.data)

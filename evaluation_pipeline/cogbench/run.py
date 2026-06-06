@@ -9,6 +9,7 @@ import scipy.io as sio
 
 from .infer import infer
 from .eval import eval
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_CHOICES, INPUT_REPRESENTATION_HANZI
 
 BACKEND_CHOICES = ["mlm", "causal", "mntp", "enc_dec_mask", "enc_dec_prefix"]
 
@@ -40,6 +41,14 @@ def _parse_arguments():
     )
     parser.add_argument("--output_dir", default="results", type=pathlib.Path, help="Path to the data directory")
     parser.add_argument("--revision_name", default=None, type=str, help="Name of the checkpoint/version of the model to test. (If None, the main will be used)")
+    parser.add_argument(
+        "--input-representation",
+        "--transliterate-to",
+        dest="input_representation",
+        default=INPUT_REPRESENTATION_HANZI,
+        choices=INPUT_REPRESENTATION_CHOICES,
+        help="Convert evaluation text before tokenization.",
+    )
 
     parser.add_argument("--save_predictions", default=False, action="store_true", help="Whether or not to save predictions.")
     parser.add_argument("--fast", default=False, action="store_true", help="Enable fast evaluation mode.")

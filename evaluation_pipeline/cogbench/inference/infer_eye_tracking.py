@@ -8,6 +8,11 @@ import torch
 from tqdm import tqdm
 
 from ..utils.utils import forward_for_representations, get_model_and_tokenizer
+from evaluation_pipeline.text_encoding import (
+	INPUT_REPRESENTATION_HANZI,
+	convert_text_for_representation,
+	should_encode_hanzi,
+)
 
 
 MIN_WORDS = 80000
@@ -219,7 +224,84 @@ def _get_split_feature(split_features, split_idx: int):
 	raise TypeError(f"Unsupported split_features type: {type(split_features)}")
 
 
-def _sentence_features(entry: dict, tokenizer, model, n_layer: int, backend: str | None = None):
+def _sentence_features_encoded(entry: dict, tokenizer, model, n_layer: int, backend: str | None = None, input_representation: str = INPUT_REPRESENTATION_HANZI):
+	all_split = entry["all_split"]
+	split_features = entry["split_features"]
+
+	layer_word_outputs = None
+	eye_matrix_merged = None
+
+	for split_idx, split_words in enumerate(all_split):
+		encoded_split_words = [
+			convert_text_for_representation(_normalize_word_for_alignment(word), input_representation) or ""
+			for word in split_words
+		]
+		encoded_sentence = " ".join(encoded_split_words)
+		encoded = tokenizer(
+			encoded_sentence,
+			add_special_tokens=False,
+			return_offsets_mapping=True,
+			return_tensors="pt",
+		)
+		offsets = [tuple(x) for x in encoded.pop("offset_mapping")[0].tolist()]
+		encoded = {k: v.to(model.device) for k, v in encoded.items()}
+
+		model_outputs = forward_for_representations(model, encoded, backend=backend).hidden_states
+
+		valid_words = find_valid_words(split_words) if REMOVE_EDGE_CHARS else None
+		valid_num, valid_index = find_vocab_word(split_words, valid_index=valid_words)
+		if valid_num < VALID_MIN:
+			continue
+
+		spans = _word_spans(encoded_sentence, encoded_split_words)
+		word_to_token = _map_words_to_tokens(offsets, spans)
+		valid_index = [keep and bool(word_to_token[idx]) for idx, keep in enumerate(valid_index)]
+		valid_num, valid_index = find_vocab_word(split_words, valid_index=valid_index)
+		if valid_num < VALID_MIN:
+			continue
+
+		split_feature = _get_split_feature(split_features, split_idx)
+		eye_matrix = get_eye_features_matrix(
+			split_feature=split_feature,
+			valid_num=valid_num,
+			valid_index=valid_index,
+		)
+
+		if eye_matrix.size == 0 or np.any(np.sum(eye_matrix, axis=0) == 0):
+			continue
+
+		_, word_outputs = calculate_word_output_sent(
+			model_outputs=model_outputs[-1],
+			split_words_list=split_words,
+			output_index=word_to_token,
+			valid_index=valid_index,
+		)
+		layer_dict = {0: word_outputs}
+
+		layer_word_outputs = merge_layer_output(layer_dict, layer_word_outputs)
+		eye_matrix_merged = merge_eye_matrix(eye_matrix, eye_matrix_merged)
+
+	return layer_word_outputs, eye_matrix_merged
+
+
+def _sentence_features(
+	entry: dict,
+	tokenizer,
+	model,
+	n_layer: int,
+	backend: str | None = None,
+	input_representation: str = INPUT_REPRESENTATION_HANZI,
+):
+	if should_encode_hanzi(input_representation):
+		return _sentence_features_encoded(
+			entry=entry,
+			tokenizer=tokenizer,
+			model=model,
+			n_layer=n_layer,
+			backend=backend,
+			input_representation=input_representation,
+		)
+
 	sentence = entry["content"]
 	all_split = entry["all_split"]
 	split_features = entry["split_features"]
@@ -283,6 +365,7 @@ def infer_eye_tracking(
 	revision_name: str | None = None,
 	fast: bool = False,
 	backend: str | None = None,
+	input_representation: str = INPUT_REPRESENTATION_HANZI,
 ):
 	model_name = os.path.basename(os.path.normpath(model_path_or_name))
 	if output_dir is None:
@@ -315,6 +398,7 @@ def infer_eye_tracking(
 				model=model,
 				n_layer=n_layer,
 				backend=backend,
+				input_representation=input_representation,
 			)
 		except Exception as exc:
 			failed_samples.append(

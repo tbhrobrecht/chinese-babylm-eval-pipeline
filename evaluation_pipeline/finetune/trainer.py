@@ -16,6 +16,7 @@ from torch.optim import AdamW
 from evaluation_pipeline.finetune.classifier_model import ModelForSequenceClassification
 from evaluation_pipeline.finetune.dataset import Dataset, PredictDataset
 from evaluation_pipeline.finetune.utils import cosine_schedule_with_warmup
+from evaluation_pipeline.text_encoding import input_representation_from_args
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -28,14 +29,14 @@ import wandb
 
 
 def _load_labeled_dataset(data_path: pathlib.Path, batch_size: int, tokenizer: PreTrainedTokenizerBase, shuffle: bool, drop_last: bool, args: Namespace) -> DataLoader:
-    dataset = Dataset(data_path, args.task)
+    dataset = Dataset(data_path, args.task, input_representation_from_args(args))
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=partial(dataset.collate_function, tokenizer, args.causal, args.sequence_length), shuffle=shuffle, drop_last=drop_last)
 
     return dataloader
 
 
 def _load_predict_dataset(data_path: pathlib.Path, batch_size: int, tokenizer: PreTrainedTokenizerBase, args: Namespace):
-    dataset = PredictDataset(data_path, args.task)
+    dataset = PredictDataset(data_path, args.task, input_representation_from_args(args))
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=partial(dataset.collate_function, tokenizer, args.causal, args.sequence_length))
 
     return dataloader

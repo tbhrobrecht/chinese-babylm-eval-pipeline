@@ -12,6 +12,7 @@ import torch
 
 from evaluation_pipeline.sentence_zero_shot.dataset import get_dataloader
 from evaluation_pipeline.sentence_zero_shot.compute_results import compute_results
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_CHOICES, INPUT_REPRESENTATION_HANZI
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -40,6 +41,14 @@ def _parse_arguments():
     parser.add_argument("--full_sentence_scores", action="store_true", help="Whether to use the entire sentence to calculate the sentence scores rather than just the completion. (Only implemented for EWoK)")
     parser.add_argument("--save_predictions", action="store_true", help="Whether or not to save predictions.")
     parser.add_argument("--save_item_with_unk", action="store_true", help="Save items whose sentences contain UNK tokens to a JSONL file.")
+    parser.add_argument(
+        "--input-representation",
+        "--transliterate-to",
+        dest="input_representation",
+        default=INPUT_REPRESENTATION_HANZI,
+        choices=INPUT_REPRESENTATION_CHOICES,
+        help="Convert evaluation text before tokenization.",
+    )
 
     return parser.parse_args()
 

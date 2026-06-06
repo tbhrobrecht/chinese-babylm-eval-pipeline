@@ -5,13 +5,23 @@ import json
 from typing import TYPE_CHECKING
 from functools import partial
 
+from evaluation_pipeline.text_encoding import (
+    INPUT_REPRESENTATION_HANZI,
+    convert_text_for_representation,
+)
+
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
     import pathlib
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, input_file: pathlib.Path, task: str) -> None:
+    def __init__(
+        self,
+        input_file: pathlib.Path,
+        task: str,
+        input_representation: str = INPUT_REPRESENTATION_HANZI,
+    ) -> None:
         """This is the supervised dataset for the finetuning tasks.
         This is optimized for sequence classification and works with
         JSONL files.
@@ -22,6 +32,7 @@ class Dataset(torch.utils.data.Dataset):
             task(str): The task that data represents. Used to
                 determine how the data is read.
         """
+        self.input_representation = input_representation
         load = partial(self.load_file, input_file)
 
         match task:
@@ -83,7 +94,7 @@ class Dataset(torch.utils.data.Dataset):
         self.texts = []
         self.labels = []
 
-        with input_file.open("r") as file:
+        with input_file.open("r", encoding="utf-8") as file:
             for line in file:
                 data = json.loads(line)
 
@@ -99,9 +110,12 @@ class Dataset(torch.utils.data.Dataset):
                         B_string = B_template.format(*B_sentences)
                     else:
                         B_string = " ".join(B_sentences)
-                    self.texts.append((A_string, B_string))
+                    self.texts.append((
+                        convert_text_for_representation(A_string, self.input_representation),
+                        convert_text_for_representation(B_string, self.input_representation),
+                    ))
                 else:
-                    self.texts.append(A_string)
+                    self.texts.append(convert_text_for_representation(A_string, self.input_representation))
 
                 self.labels.append(data["label"])
 
@@ -157,7 +171,12 @@ class Dataset(torch.utils.data.Dataset):
 
 class PredictDataset(torch.utils.data.Dataset):
 
-    def __init__(self, input_file: pathlib.Path, task: str) -> None:
+    def __init__(
+        self,
+        input_file: pathlib.Path,
+        task: str,
+        input_representation: str = INPUT_REPRESENTATION_HANZI,
+    ) -> None:
         """This is the prediction dataset for the finetuning tasks.
         This is optimized for sequence classification and works with
         JSONL files.
@@ -168,6 +187,7 @@ class PredictDataset(torch.utils.data.Dataset):
             task(str): The task that data represents. Used to
                 determine how the data is read.
         """
+        self.input_representation = input_representation
         load = partial(self.load_file, input_file)
 
         match task:
@@ -228,7 +248,7 @@ class PredictDataset(torch.utils.data.Dataset):
         """
         self.texts = []
 
-        with input_file.open("r") as file:
+        with input_file.open("r", encoding="utf-8") as file:
             for line in file:
                 data = json.loads(line)
 
@@ -244,9 +264,12 @@ class PredictDataset(torch.utils.data.Dataset):
                         B_string = B_template.format(*B_sentences)
                     else:
                         B_string = " ".join(B_sentences)
-                    self.texts.append((A_string, B_string))
+                    self.texts.append((
+                        convert_text_for_representation(A_string, self.input_representation),
+                        convert_text_for_representation(B_string, self.input_representation),
+                    ))
                 else:
-                    self.texts.append(A_string)
+                    self.texts.append(convert_text_for_representation(A_string, self.input_representation))
 
     def __len__(self) -> int:
         return len(self.texts)

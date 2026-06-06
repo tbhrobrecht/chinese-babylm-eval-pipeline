@@ -8,6 +8,7 @@ import numpy as np
 import scipy.io as scio
 import torch
 from ..utils.utils import DEVICE, forward_for_representations, get_model_and_tokenizer
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_HANZI, convert_text_for_representation
 
 
 BATCH_SIZE = 64
@@ -220,6 +221,7 @@ def infer_sentence(
 	revision_name: str | None = None,
 	layer_index: int = -1,
 	backend: str | None = None,
+	input_representation: str = INPUT_REPRESENTATION_HANZI,
 ):
 	model_name = os.path.basename(os.path.normpath(model_path_or_name))
 	if output_dir is None:
@@ -239,6 +241,13 @@ def infer_sentence(
 	for story_file in story_files:
 		story_id = parse_story_id(story_file)
 		words_per_line = read_words_per_line(story_file)
+		words_per_line = [
+			[
+				convert_text_for_representation(word, input_representation) or ""
+				for word in line_words
+			]
+			for line_words in words_per_line
+		]
 		data = encode_words_mean_pool(
 			words_per_line=words_per_line,
 			tokenizer=tokenizer,

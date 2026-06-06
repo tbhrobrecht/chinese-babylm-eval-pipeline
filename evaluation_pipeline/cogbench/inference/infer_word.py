@@ -6,6 +6,11 @@ import numpy as np
 import torch
 
 from ..utils.utils import DEVICE, forward_for_representations, get_model_and_tokenizer
+from evaluation_pipeline.text_encoding import (
+	INPUT_REPRESENTATION_CHOICES,
+	INPUT_REPRESENTATION_HANZI,
+	convert_text_for_representation,
+)
 
 
 
@@ -67,15 +72,25 @@ def _mean_pool_last_hidden(last_hidden_state, attention_mask=None):
 	return masked_hidden.sum(dim=1) / token_count
 
 
-def extract_word_features(words, model, tokenizer, batch_size=BATCH_SIZE, backend: str | None = None):
+def extract_word_features(
+	words,
+	model,
+	tokenizer,
+	batch_size=BATCH_SIZE,
+	backend: str | None = None,
+	input_representation: str = INPUT_REPRESENTATION_HANZI,
+):
 	if tokenizer.pad_token is None and tokenizer.eos_token is not None:
 		tokenizer.pad_token = tokenizer.eos_token
 
 	word_features = {}
 	for start in range(0, len(words), batch_size):
 		batch_words = words[start:start + batch_size]
+		model_input_words = [
+			convert_text_for_representation(word, input_representation) for word in batch_words
+		]
 		inputs = tokenizer(
-			batch_words,
+			model_input_words,
 			return_tensors="pt",
 			padding=True,
 			truncation=True,
@@ -101,13 +116,20 @@ def infer_word(
 	save_predictions: bool = SAVE_PREDICTIONS,
 	revision_name: str | None = None,
 	backend: str | None = None,
+	input_representation: str = INPUT_REPRESENTATION_HANZI,
 ):
 	root_path = _resolve_cogbench_root(datapath)
 	model_name = os.path.basename(os.path.normpath(model_path_or_name))
 	words = _load_words(root_path)
 
 	model, tokenizer = get_model_and_tokenizer(model_path_or_name, revision_name=revision_name, backend=backend)
-	word_features = extract_word_features(words, model, tokenizer, backend=backend)
+	word_features = extract_word_features(
+		words,
+		model,
+		tokenizer,
+		backend=backend,
+		input_representation=input_representation,
+	)
 
 	if save_predictions:
 		persist_root = output_root if output_root is not None else root_path
@@ -130,6 +152,7 @@ def main(args):
 		output_root=getattr(args, "output_root", None),
 		save_predictions=not args.no_save_predictions,
 		revision_name=args.revision_name,
+		input_representation=args.input_representation,
 	)
 
 
@@ -152,6 +175,14 @@ if __name__ == "__main__":
 		"--no_save_predictions",
 		action="store_true",
 		help="Disable saving word_feature.json.",
+	)
+	parser.add_argument(
+		"--input-representation",
+		"--transliterate-to",
+		dest="input_representation",
+		default=INPUT_REPRESENTATION_HANZI,
+		choices=INPUT_REPRESENTATION_CHOICES,
+		help="Convert evaluation text before tokenization.",
 	)
 
 	main(parser.parse_args())

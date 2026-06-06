@@ -13,6 +13,8 @@ import pathlib
 import subprocess
 import sys
 
+from evaluation_pipeline.text_encoding import INPUT_REPRESENTATION_CHOICES, INPUT_REPRESENTATION_HANZI
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Task constants
 # ─────────────────────────────────────────────────────────────────────────────
@@ -191,7 +193,15 @@ def _run(cmd, task_label):
         )
 
 
-def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk=False):
+def _build_zero_shot_cmd(
+    model_path,
+    backend,
+    task,
+    eval_dir,
+    results_dir,
+    save_item_with_unk=False,
+    input_representation=INPUT_REPRESENTATION_HANZI,
+):
     data_dir = ZERO_SHOT_DATA_DIRS[task]
     cmd = [
         sys.executable, "-m", "evaluation_pipeline.sentence_zero_shot.run",
@@ -201,13 +211,14 @@ def _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_
         "--data_path", str(pathlib.Path(eval_dir) / "full_eval" / data_dir),
         "--output_dir", results_dir,
         "--save_predictions",
+        "--input-representation", input_representation,
     ]
     if save_item_with_unk and task in ("hanzi_structure", "hanzi_pinyin"):
         cmd.append("--save_item_with_unk")
     return cmd
 
 
-def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir):
+def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir, input_representation=INPUT_REPRESENTATION_HANZI):
     return [
         sys.executable, "-m", "evaluation_pipeline.cogbench.run",
         "--model_path_or_name", model_path,
@@ -216,10 +227,11 @@ def _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir):
         "--data_path", str(pathlib.Path(eval_dir) / "cogbench-fmri-0415"),
         "--output_dir", results_dir,
         "--save_predictions",
+        "--input-representation", input_representation,
     ]
 
 
-def _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparams):
+def _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparams, input_representation=INPUT_REPRESENTATION_HANZI):
     spec = FINETUNE_SPECS[task]
     clue_dir = pathlib.Path(eval_dir) / "full_eval" / "clue"
 
@@ -239,6 +251,7 @@ def _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparam
         "--metrics", *spec["metrics"],
         "--metric_for_valid", "accuracy",
         "--seed", str(hparams["seed"]),
+        "--input-representation", input_representation,
     ]
     if backend == "causal":
         cmd += ["--causal", "--take_final"]
@@ -388,6 +401,11 @@ def cmd_eval(args):
     tasks_cfg   = cfg.get("tasks", {})
     eval_dir    = cfg.get("eval_dir", "evaluation_data")
     results_dir = args.results_dir if args.results_dir else cfg.get("results_dir", "results")
+    input_representation = (
+        args.input_representation
+        if args.input_representation is not None
+        else cfg.get("input_representation", INPUT_REPRESENTATION_HANZI)
+    )
 
     save_item_with_unk = cfg.get("save_item_with_unk", False)
 
@@ -417,6 +435,7 @@ def cmd_eval(args):
     for model_entry in models:
         model_path = model_entry["path"]
         backend    = model_entry["backend"]
+        model_input_representation = model_entry.get("input_representation", input_representation)
         stem       = pathlib.Path(model_path).name
 
         for task in zero_shot_tasks:
@@ -424,7 +443,15 @@ def cmd_eval(args):
                 print(f"\n=== Skipping {stem} on {task} (result already exists). "
                       f"Use --force-redo to re-evaluate. ===")
                 continue
-            cmd = _build_zero_shot_cmd(model_path, backend, task, eval_dir, results_dir, save_item_with_unk)
+            cmd = _build_zero_shot_cmd(
+                model_path,
+                backend,
+                task,
+                eval_dir,
+                results_dir,
+                save_item_with_unk,
+                model_input_representation,
+            )
             _run(cmd, f"{stem} on {task}")
 
         for task in cogbench_tasks:
@@ -432,7 +459,14 @@ def cmd_eval(args):
                 print(f"\n=== Skipping {stem} on {task} (result already exists). "
                       f"Use --force-redo to re-evaluate. ===")
                 continue
-            cmd = _build_cogbench_cmd(model_path, backend, task, eval_dir, results_dir)
+            cmd = _build_cogbench_cmd(
+                model_path,
+                backend,
+                task,
+                eval_dir,
+                results_dir,
+                model_input_representation,
+            )
             _run(cmd, f"{stem} on {task}")
 
         for task in finetune_tasks:
@@ -441,7 +475,15 @@ def cmd_eval(args):
                       f"Use --force-redo to re-evaluate. ===")
                 continue
             hparams = {**hparams_cfg, **task_overrides.get(task, {})}
-            cmd = _build_finetune_cmd(model_path, backend, task, eval_dir, results_dir, hparams)
+            cmd = _build_finetune_cmd(
+                model_path,
+                backend,
+                task,
+                eval_dir,
+                results_dir,
+                hparams,
+                model_input_representation,
+            )
             _run(cmd, f"{stem} on {task}")
 
     # ── Collect results ──────────────────────────────────────────────────────
@@ -764,6 +806,14 @@ def main():
         default=False,
         help="Force re-evaluation even if results already exist "
              "(only meaningful with --tasks)",
+    )
+    ev_parser.add_argument(
+        "--input-representation",
+        "--transliterate-to",
+        dest="input_representation",
+        default=None,
+        choices=INPUT_REPRESENTATION_CHOICES,
+        help="Override config text representation before tokenization.",
     )
     ev_parser.set_defaults(func=cmd_eval)
 
