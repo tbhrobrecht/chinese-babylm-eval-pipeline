@@ -3,10 +3,10 @@
     "accuracy": 0.7006999999999999
   },
   "hanzi_structure": {
-    "accuracy": 0.0
+    "accuracy": 0.5515
   },
   "hanzi_pinyin": {
-    "accuracy": 0.0
+    "accuracy": 0.9640000000000001
   },
   "word_fmri": {
     "mean": 0.5569695628033935

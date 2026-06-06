@@ -18,6 +18,28 @@ _CJK_RE = re.compile(
     "\U0002ceb0-\U0002ebef\U00030000-\U0003134f]"
 )
 _TONE_RE = re.compile(r"([1-5])$")
+_PUNCTUATION_TRANSLATION = str.maketrans(
+    {
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+        "，": ",",
+        "。": ".",
+        "、": ",",
+        "；": ";",
+        "：": ":",
+        "？": "?",
+        "！": "!",
+        "（": "(",
+        "）": ")",
+        "【": "[",
+        "】": "]",
+        "《": "<",
+        "》": ">",
+        "　": " ",
+    }
+)
 
 
 def _is_chinese_char(char: str) -> bool:
@@ -71,10 +93,10 @@ def _encode_jieba_word(word: str, pinyin, style) -> str:
         if _is_chinese_char(char):
             encoded.append(_syllable_to_initial_digit(value))
         else:
-            encoded.append(char)
+            encoded.append(char.translate(_PUNCTUATION_TRANSLATION))
 
     if len(encoded) < len(word):
-        encoded.extend(word[len(encoded):])
+        encoded.extend(word[len(encoded):].translate(_PUNCTUATION_TRANSLATION))
     return "".join(encoded)
 
 
