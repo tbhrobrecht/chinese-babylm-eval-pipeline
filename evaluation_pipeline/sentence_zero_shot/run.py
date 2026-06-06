@@ -58,12 +58,6 @@ def get_model(args: argparse.ArgumentParser):
         "trust_remote_code": True,
         "revision": args.revision_name
     }
-    
-    # Try using device_map to avoid meta-tensor issues safely 
-    try:
-        kwargs["device_map"] = DEVICE
-    except ImportError:
-        pass
 
     if args.backend in ["mlm", "mntp"]:
         model = AutoModelForMaskedLM.from_pretrained(args.model_path_or_name, **kwargs)

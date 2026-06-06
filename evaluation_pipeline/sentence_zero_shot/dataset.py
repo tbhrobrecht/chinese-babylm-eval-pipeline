@@ -64,37 +64,99 @@ class CompletionRankingDataset(Dataset):
         completions = sentence_dict["completions"]
 
         processed_sentence_dict = {}
+        is_fast = bool(getattr(self.tokenizer, "is_fast", False))
+
+        def _unwrap_singleton_list(x):
+            if isinstance(x, list) and len(x) == 1 and isinstance(x[0], list):
+                return x[0]
+            return x
+
+        def _find_subsequence(haystack, needle):
+            if len(needle) == 0:
+                return -1
+            for i in range(len(haystack) - len(needle) + 1):
+                if haystack[i : i + len(needle)] == needle:
+                    return i
+            return -1
+
+        def _find_last_subsequence(haystack, needle):
+            if len(needle) == 0:
+                return -1
+            for i in range(len(haystack) - len(needle), -1, -1):
+                if haystack[i : i + len(needle)] == needle:
+                    return i
+            return -1
+
         for sentence_idx, (sentence, completion) in enumerate(zip(sentences, completions)):
             # Basic outputs
             if image is None:
-                tokenizer_output = self.processor(text=sentence, return_offsets_mapping=True)
+                if is_fast:
+                    tokenizer_output = self.processor(text=sentence, return_offsets_mapping=True)
+                else:
+                    tokenizer_output = self.processor(text=sentence)
                 sentence_tokens = tokenizer_output["input_ids"]
             else:
                 if self.image_token is not None:
                     image_sentence = self.image_template.format(image_token=self.image_token, text=sentence)
                 else:
                     image_sentence = sentence
-                tokenizer_output = self.processor(text=image_sentence, images=image, return_offsets_mapping=True)
-                sentence_tokens = self.processor(text=sentence, return_offsets_mapping=True)["input_ids"]
-            tokens = tokenizer_output["input_ids"]
-            attention_mask = tokenizer_output["attention_mask"]
-            offset_mapping = tokenizer_output['offset_mapping']
+                if is_fast:
+                    tokenizer_output = self.processor(text=image_sentence, images=image, return_offsets_mapping=True)
+                    sentence_tokens = self.processor(text=sentence, return_offsets_mapping=True)["input_ids"]
+                else:
+                    tokenizer_output = self.processor(text=image_sentence, images=image)
+                    sentence_tokens = self.tokenizer(sentence, add_special_tokens=True)["input_ids"]
+            tokens = _unwrap_singleton_list(tokenizer_output["input_ids"])
+            attention_mask = _unwrap_singleton_list(tokenizer_output["attention_mask"])
             embed_image = torch.FloatTensor(tokenizer_output["pixel_values"]) if image is not None else None
             if len(tokens) == 1 and len(sentence) != 0:
                 if sentence_tokens:
                     sentence_tokens = sentence_tokens[0]
                 tokens = tokens[0]
                 attention_mask = attention_mask[0]
-                offset_mapping = offset_mapping[0]
 
             # Phrase mask (to determine the exact tokens associated with the completion/suffix)
-            start_idx = len(tokens) - len(sentence_tokens)
-            start_char_idx = len(sentence) - len(completion) + offset_mapping[start_idx][0]
             phrase_indices = []
-            for i, (start, end) in enumerate(offset_mapping[start_idx:]):
-                # If token overlaps with our phrase's character span
-                if end > start_char_idx:
-                    phrase_indices.append(i+start_idx)
+            if is_fast and "offset_mapping" in tokenizer_output:
+                offset_mapping = _unwrap_singleton_list(tokenizer_output["offset_mapping"])
+                start_idx = len(tokens) - len(sentence_tokens)
+                start_char_idx = len(sentence) - len(completion) + offset_mapping[start_idx][0]
+                for i, (start, end) in enumerate(offset_mapping[start_idx:]):
+                    # If token overlaps with our phrase's character span
+                    if end > start_char_idx:
+                        phrase_indices.append(i+start_idx)
+            else:
+                prefix_text = sentence[:len(sentence) - len(completion)] if completion else sentence
+                full_ids_nospec = self.tokenizer(sentence, add_special_tokens=False)["input_ids"]
+                prefix_ids_nospec = self.tokenizer(prefix_text, add_special_tokens=False)["input_ids"]
+                completion_ids_nospec = self.tokenizer(completion, add_special_tokens=False)["input_ids"]
+
+                full_start_in_tokens = _find_subsequence(tokens, full_ids_nospec)
+                if (
+                    len(completion_ids_nospec) > 0
+                    and len(full_ids_nospec) >= len(completion_ids_nospec)
+                    and full_ids_nospec[-len(completion_ids_nospec):] == completion_ids_nospec
+                ):
+                    phrase_start_in_full = len(full_ids_nospec) - len(completion_ids_nospec)
+                else:
+                    phrase_start_in_full = min(len(prefix_ids_nospec), len(full_ids_nospec))
+
+                if full_start_in_tokens != -1:
+                    phrase_start = full_start_in_tokens + phrase_start_in_full
+                    phrase_end = phrase_start + len(completion_ids_nospec)
+                    phrase_indices = list(range(max(0, phrase_start), min(phrase_end, len(tokens))))
+                else:
+                    comp_start = _find_last_subsequence(tokens, completion_ids_nospec)
+                    if comp_start != -1:
+                        phrase_indices = list(range(comp_start, comp_start + len(completion_ids_nospec)))
+
+            if len(phrase_indices) == 0:
+                fallback_idx = None
+                for i in range(len(attention_mask) - 1, -1, -1):
+                    if attention_mask[i] == 1:
+                        fallback_idx = i
+                        break
+                phrase_indices = [fallback_idx if fallback_idx is not None else max(len(tokens) - 1, 0)]
 
             phrase_mask = [0 for _ in range(len(tokens))]
             for token_idx in phrase_indices:

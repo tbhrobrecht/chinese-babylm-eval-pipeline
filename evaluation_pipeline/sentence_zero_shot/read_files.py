@@ -36,7 +36,7 @@ def read_files(args: Namespace) -> list[dict[str, str]]:
         if filename.suffix != ".jsonl":
             continue
 
-        with filename.open("r") as f:
+        with filename.open("r", encoding="utf-8") as f:
             for line in f:
                 data.append(decode(line, filename, args.task, args.full_sentence_scores, images))
 
