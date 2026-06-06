@@ -90,15 +90,17 @@ def prepare_hanzi_structure(output_dir: pathlib.Path) -> None:
 
     repo_id = "chinese-babylm-org/hanzi-structure"
     print(f"  Loading from {repo_id} ...")
-    ds = load_dataset(repo_id, split="train")
+    path = hf_hub_download(repo_id=repo_id, filename="hanzi_structure_open.jsonl", repo_type="dataset")
+    with open(path, encoding="utf-8") as f:
+        raw = [json.loads(line) for line in f]
 
     rows = []
-    for item in ds:
+    for item in raw:
         rows.append({
-            "sentence_good": item["sent_good"],
-            "sentence_bad": item["sent_bad"],
-            "UID": item["condition"],
-            "phenomenon": item["Structure"],
+            "sentence_good": item["sentence_good"],
+            "sentence_bad": item["sentence_bad"],
+            "UID": item["task"],
+            "phenomenon": item["meta_structure"],
         })
 
     write_jsonl(rows, full_dir / "hanzi_structure.jsonl")
@@ -113,10 +115,12 @@ def prepare_hanzi_pinyin(output_dir: pathlib.Path) -> None:
 
     repo_id = "chinese-babylm-org/hanzi-pinyin"
     print(f"  Loading from {repo_id} ...")
-    ds = load_dataset(repo_id, split="train")
+    path = hf_hub_download(repo_id=repo_id, filename="hanzi_pinyin_open_2000.jsonl", repo_type="dataset")
+    with open(path, encoding="utf-8") as f:
+        raw = [json.loads(line) for line in f]
 
     rows = []
-    for item in ds:
+    for item in raw:
         rows.append({
             "sentence_good": item["sentence_good"],
             "sentence_bad": item["sentence_bad"],
