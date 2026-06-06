@@ -13,6 +13,9 @@ This repository contains the evaluation pipeline for the **2026 Chinese BabyLM C
 
 ## Changelog
 
+**[2026/06/06]**
+See 3 announcements here: [here](https://github.com/SiyuanSong2004/chinese-babylm-eval-pipeline/blob/main/announcements0606.md)
+
 **[2026/04/19]**
 1. Updated the ZhoBLiMP dataset (`chinese-babylm-org/zhoblimp`). Please use the latest version for all evaluations.
 2. Added detailed rules for pre-training data — see the [Token Count](#token-count) section.
