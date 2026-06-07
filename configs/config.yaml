@@ -7,7 +7,7 @@
 #   path    — HuggingFace repo ID or local directory path
 #   backend — one of: causal, mlm, mntp, enc_dec_mask, enc_dec_prefix
 models:
-  - path: timorobrecht/full_chinese_gpu2
+  - path: timorobrecht/full_chinese_gpu3
     backend: causal
   # - path: /path/to/local/model
   #   backend: mlm

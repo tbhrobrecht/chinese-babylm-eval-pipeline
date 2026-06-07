@@ -1,0 +1,29 @@
+{
+  "zhoblimp": {
+    "accuracy": 0.6831999999999999
+  },
+  "hanzi_structure": {
+    "accuracy": 0.5525
+  },
+  "hanzi_pinyin": {
+    "accuracy": 0.9645
+  },
+  "word_fmri": {
+    "mean": 0.5569740822793149
+  },
+  "fmri": {
+    "mean": 0.08847487930683488
+  },
+  "afqmc": {
+    "accuracy": 0.6895273401297498
+  },
+  "ocnli": {
+    "accuracy": 0.5786440677966102
+  },
+  "tnews": {
+    "accuracy": 0.4997
+  },
+  "cluewsc2020": {
+    "accuracy": 0.6348684210526315
+  }
+}
