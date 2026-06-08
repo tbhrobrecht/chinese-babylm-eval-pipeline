@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model result comparison</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5f6f7a;
+      --line: #d8e0e6;
+      --panel: #ffffff;
+      --bg: #f5f7f8;
+      --accent: #0f7c80;
+      --accent-2: #c74f32;
+      --fill: #3d8f73;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 56px; }
+    h1 { margin: 0 0 6px; font-size: 32px; letter-spacing: 0; }
+    h2 { margin: 0 0 18px; font-size: 20px; letter-spacing: 0; }
+    p { margin: 0; color: var(--muted); }
+    .hero { margin-bottom: 24px; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 22px 0; }
+    .metric-card, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(20, 37, 46, 0.04);
+    }
+    .metric-card { padding: 16px; }
+    .metric-card span { display: block; color: var(--muted); font-size: 13px; }
+    .metric-card strong { display: block; margin: 4px 0; font-size: 30px; }
+    .metric-card small { color: var(--muted); }
+    .candidate-card { border-color: color-mix(in srgb, var(--accent) 42%, var(--line)); }
+    .panel { padding: 20px; margin-top: 16px; overflow: hidden; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+    th { font-weight: 650; }
+    td { color: #26333b; }
+    tr:last-child td, tr:last-child th { border-bottom: 0; }
+    .candidate-row { background: #eef8f6; }
+    .bar-track { position: relative; height: 26px; min-width: 220px; background: #edf1f3; border-radius: 5px; overflow: hidden; }
+    .bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--fill); }
+    .bar-label { position: relative; z-index: 1; display: inline-flex; height: 100%; align-items: center; padding-left: 8px; font-variant-numeric: tabular-nums; color: #102126; }
+    .missing { color: var(--muted); }
+    .dist-grid { display: grid; gap: 8px; }
+    .dist-chart { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line); }
+    .dist-chart:last-child { border-bottom: 0; }
+    .task-name { font-size: 15px; font-weight: 650; fill: var(--ink); }
+    .axis { stroke: #d4dde3; stroke-width: 8; stroke-linecap: round; }
+    .range { stroke: #8fa0aa; stroke-width: 8; stroke-linecap: round; }
+    .range-end { fill: #8fa0aa; }
+    .median { stroke: var(--ink); stroke-width: 3; }
+    .candidate-dot { fill: var(--accent-2); stroke: white; stroke-width: 2; }
+    .candidate-label, .note { font-size: 12px; fill: var(--muted); }
+    .rank-table td { background: linear-gradient(90deg, rgba(15, 124, 128, 0.16) var(--strength, 0%), transparent var(--strength, 0%)); }
+    .rank-table small { display: block; margin-top: 2px; color: var(--muted); }
+    .footer-note { margin-top: 14px; font-size: 13px; }
+    @media (max-width: 720px) {
+      main { padding: 24px 12px 40px; }
+      h1 { font-size: 26px; }
+      .panel { padding: 14px; }
+      .dist-chart { min-width: 760px; }
+      .dist-grid { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1>Model result comparison</h1>
+    <p>Candidate models are compared against README baselines. All scores are percentages; higher is better.</p>
+  </header>
+
+  <section class="metrics">
+    
+<article class="metric-card candidate-card">
+  <span>gpu2</span>
+  <strong>58.42</strong>
+  <small>mean rank 3/25; 7.83 vs baseline median</small>
+</article>
+<article class="metric-card candidate-card">
+  <span>gpu3</span>
+  <strong>58.32</strong>
+  <small>mean rank 4/25; 7.72 vs baseline median</small>
+</article>
+<article class="metric-card">
+  <span>Best baseline</span>
+  <strong>59.00</strong>
+  <small>bert-base-chinese</small>
+</article>
+<article class="metric-card">
+  <span>Baseline median</span>
+  <strong>50.59</strong>
+  <small>23 README baselines</small>
+</article>
+  </section>
+
+  <section class="panel">
+    <h2>Overall mean leaderboard</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rank</th><th>Model</th><th>Source</th><th>Mean</th><th>Coverage</th></tr></thead>
+        <tbody>
+<tr class="">
+  <td>1</td>
+  <th>bert-base-chinese</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:59.00%"></span><span class="bar-label">59.00</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>2</td>
+  <th>Qwen3-0.6B</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:58.79%"></span><span class="bar-label">58.79</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="candidate-row">
+  <td>3</td>
+  <th>gpu2</th>
+  <td>candidate</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:58.42%"></span><span class="bar-label">58.42</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="candidate-row">
+  <td>4</td>
+  <th>gpu3</th>
+  <td>candidate</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:58.32%"></span><span class="bar-label">58.32</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>5</td>
+  <th>chinese-bert-wwm-ext</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:57.76%"></span><span class="bar-label">57.76</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>6</td>
+  <th>xlm-roberta-base</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:56.94%"></span><span class="bar-label">56.94</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>7</td>
+  <th>babylm-chinese-bert-14m-epoch20</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:53.91%"></span><span class="bar-label">53.91</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>8</td>
+  <th>babylm-chinese-bert-14m-epoch10</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:53.48%"></span><span class="bar-label">53.48</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>9</td>
+  <th>babylm-chinese-mamba-14M-epoch3</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:52.83%"></span><span class="bar-label">52.83</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>10</td>
+  <th>Zh-Pythia-1.4B-v0.1-checkpoint-3000</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:51.14%"></span><span class="bar-label">51.14</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>11</td>
+  <th>babylm-chinese-pythia-14M-epoch10</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.89%"></span><span class="bar-label">50.89</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>12</td>
+  <th>babylm-chinese-pythia-14M-epoch3</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.82%"></span><span class="bar-label">50.82</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>13</td>
+  <th>babylm-chinese-mamba-14m-epoch20</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.72%"></span><span class="bar-label">50.72</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>14</td>
+  <th>babylm-chinese-mamba-14m-epoch10</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.59%"></span><span class="bar-label">50.59</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>15</td>
+  <th>babylm-chinese-pythia-14m-epoch20</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.52%"></span><span class="bar-label">50.52</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>16</td>
+  <th>Zh-Pythia-160M-v0.1-checkpoint-3000</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.30%"></span><span class="bar-label">50.30</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>17</td>
+  <th>Zh-Pythia-410M-v0.1-checkpoint-3000</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.12%"></span><span class="bar-label">50.12</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>18</td>
+  <th>babylm-chinese-bert-14M-epoch3</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:50.12%"></span><span class="bar-label">50.12</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>19</td>
+  <th>babylm-chinese-t5-14m-epoch20</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:49.98%"></span><span class="bar-label">49.98</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>20</td>
+  <th>Zh-Pythia-70M-v0.1-checkpoint-3000</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:49.35%"></span><span class="bar-label">49.35</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>21</td>
+  <th>roc-bert-base-zh</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:48.79%"></span><span class="bar-label">48.79</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>22</td>
+  <th>babylm-chinese-t5-14m-epoch10</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:47.48%"></span><span class="bar-label">47.48</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>23</td>
+  <th>Zh-Pythia-14M-v0.1-checkpoint-3000</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:47.32%"></span><span class="bar-label">47.32</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>24</td>
+  <th>babylm-chinese-t5-14M-epoch3</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:45.87%"></span><span class="bar-label">45.87</span></div></td>
+  <td>9/9</td>
+</tr>
+<tr class="">
+  <td>25</td>
+  <th>ChineseBERT-base</th>
+  <td>baseline</td>
+  <td><div class="bar-track"><span class="bar-fill" style="width:45.86%"></span><span class="bar-label">45.86</span></div></td>
+  <td>9/9</td>
+</tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Per-task position against baselines</h2>
+    <div class="dist-grid">
+      
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="ZhoBLiMP baseline distribution">
+  <text x="0" y="50" class="task-name">ZhoBLiMP</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="425.5" y1="50" x2="611.2" y2="50" class="range" />
+  <circle cx="425.5" cy="50" r="4" class="range-end" />
+  <circle cx="611.2" cy="50" r="4" class="range-end" />
+  <line x1="547.5" y1="39" x2="547.5" y2="61" class="median" />
+  <circle cx="528.4" cy="46" r="6" class="candidate-dot" /><text x="538.4" y="50" class="candidate-label">gpu2 70.07</text><circle cx="518.6" cy="68" r="6" class="candidate-dot" /><text x="528.6" y="72" class="candidate-label">gpu3 68.32</text>
+  <text x="136" y="114" class="note">baseline min 51.69, median 73.49, best 84.86 (chinese-bert-wwm-ext)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="Hanzi structure baseline distribution">
+  <text x="0" y="50" class="task-name">Hanzi structure</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="418.8" y1="50" x2="471.2" y2="50" class="range" />
+  <circle cx="418.8" cy="50" r="4" class="range-end" />
+  <circle cx="471.2" cy="50" r="4" class="range-end" />
+  <line x1="434.5" y1="39" x2="434.5" y2="61" class="median" />
+  <circle cx="444.8" cy="46" r="6" class="candidate-dot" /><text x="454.8" y="50" class="candidate-label">gpu2 55.15</text><circle cx="445.4" cy="68" r="6" class="candidate-dot" /><text x="455.4" y="72" class="candidate-label">gpu3 55.25</text>
+  <text x="136" y="114" class="note">baseline min 50.50, median 53.30, best 59.85 (Qwen3-0.6B)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="Hanzi pinyin baseline distribution">
+  <text x="0" y="50" class="task-name">Hanzi pinyin</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="200.4" y1="50" x2="414.9" y2="50" class="range" />
+  <circle cx="200.4" cy="50" r="4" class="range-end" />
+  <circle cx="414.9" cy="50" r="4" class="range-end" />
+  <line x1="301.8" y1="39" x2="301.8" y2="61" class="median" />
+  <circle cx="675.8" cy="46" r="6" class="candidate-dot" /><text x="685.8" y="50" class="candidate-label">gpu2 96.40</text><circle cx="676.1" cy="68" r="6" class="candidate-dot" /><text x="686.1" y="72" class="candidate-label">gpu3 96.45</text>
+  <text x="136" y="114" class="note">baseline min 11.50, median 29.60, best 49.80 (Qwen3-0.6B)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="Word fMRI baseline distribution">
+  <text x="0" y="50" class="task-name">Word fMRI</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="391.6" y1="50" x2="450.2" y2="50" class="range" />
+  <circle cx="391.6" cy="50" r="4" class="range-end" />
+  <circle cx="450.2" cy="50" r="4" class="range-end" />
+  <line x1="447.4" y1="39" x2="447.4" y2="61" class="median" />
+  <circle cx="447.9" cy="46" r="6" class="candidate-dot" /><text x="457.9" y="50" class="candidate-label">gpu2 55.70</text><circle cx="447.9" cy="68" r="6" class="candidate-dot" /><text x="457.9" y="72" class="candidate-label">gpu3 55.70</text>
+  <text x="136" y="114" class="note">baseline min 45.64, median 55.60, best 56.10 (Zh-Pythia-410M-v0.1-checkpoint-3000)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="fMRI baseline distribution">
+  <text x="0" y="50" class="task-name">fMRI</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="162.3" y1="50" x2="195.4" y2="50" class="range" />
+  <circle cx="162.3" cy="50" r="4" class="range-end" />
+  <circle cx="195.4" cy="50" r="4" class="range-end" />
+  <line x1="186.4" y1="39" x2="186.4" y2="61" class="median" />
+  <circle cx="185.5" cy="46" r="6" class="candidate-dot" /><text x="195.5" y="50" class="candidate-label">gpu2 8.84</text><circle cx="185.5" cy="68" r="6" class="candidate-dot" /><text x="195.5" y="72" class="candidate-label">gpu3 8.85</text>
+  <text x="136" y="114" class="note">baseline min 4.70, median 9.00, best 10.60 (xlm-roberta-base)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="AFQMC baseline distribution">
+  <text x="0" y="50" class="task-name">AFQMC</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="521.8" y1="50" x2="545.6" y2="50" class="range" />
+  <circle cx="521.8" cy="50" r="4" class="range-end" />
+  <circle cx="545.6" cy="50" r="4" class="range-end" />
+  <line x1="522.4" y1="39" x2="522.4" y2="61" class="median" />
+  <circle cx="522.5" cy="46" r="6" class="candidate-dot" /><text x="532.5" y="50" class="candidate-label">gpu2 69.02</text><circle cx="522.1" cy="68" r="6" class="candidate-dot" /><text x="532.1" y="72" class="candidate-label">gpu3 68.95</text>
+  <text x="136" y="114" class="note">baseline min 68.90, median 69.00, best 73.15 (chinese-bert-wwm-ext)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="OCNLI baseline distribution">
+  <text x="0" y="50" class="task-name">OCNLI</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="345.4" y1="50" x2="558.0" y2="50" class="range" />
+  <circle cx="345.4" cy="50" r="4" class="range-end" />
+  <circle cx="558.0" cy="50" r="4" class="range-end" />
+  <line x1="472.4" y1="39" x2="472.4" y2="61" class="median" />
+  <circle cx="450.7" cy="46" r="6" class="candidate-dot" /><text x="460.7" y="50" class="candidate-label">gpu2 56.20</text><circle cx="460.0" cy="68" r="6" class="candidate-dot" /><text x="470.0" y="72" class="candidate-label">gpu3 57.86</text>
+  <text x="136" y="114" class="note">baseline min 37.39, median 60.07, best 75.36 (chinese-bert-wwm-ext)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="TNEWS baseline distribution">
+  <text x="0" y="50" class="task-name">TNEWS</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="291.6" y1="50" x2="462.6" y2="50" class="range" />
+  <circle cx="291.6" cy="50" r="4" class="range-end" />
+  <circle cx="462.6" cy="50" r="4" class="range-end" />
+  <line x1="433.9" y1="39" x2="433.9" y2="61" class="median" />
+  <circle cx="417.4" cy="46" r="6" class="candidate-dot" /><text x="427.4" y="50" class="candidate-label">gpu2 50.25</text><circle cx="415.8" cy="68" r="6" class="candidate-dot" /><text x="425.8" y="72" class="candidate-label">gpu3 49.97</text>
+  <text x="136" y="114" class="note">baseline min 27.78, median 53.20, best 58.32 (chinese-bert-wwm-ext)</text>
+</svg>
+<svg class="dist-chart" viewBox="0 0 760 126" role="img" aria-label="CLUEWSC2020 baseline distribution">
+  <text x="0" y="50" class="task-name">CLUEWSC2020</text>
+  <line x1="136" y1="50" x2="696" y2="50" class="axis" />
+  <line x1="482.3" y1="50" x2="552.3" y2="50" class="range" />
+  <circle cx="482.3" cy="50" r="4" class="range-end" />
+  <circle cx="552.3" cy="50" r="4" class="range-end" />
+  <line x1="491.5" y1="39" x2="491.5" y2="61" class="median" />
+  <circle cx="495.2" cy="46" r="6" class="candidate-dot" /><text x="505.2" y="50" class="candidate-label">gpu2 64.14</text><circle cx="491.5" cy="68" r="6" class="candidate-dot" /><text x="501.5" y="72" class="candidate-label">gpu3 63.49</text>
+  <text x="136" y="114" class="note">baseline min 61.84, median 63.49, best 74.34 (chinese-bert-wwm-ext)</text>
+</svg>
+    </div>
+    <p class="footer-note">Gray bars show the README baseline range. Black ticks show the baseline median. Orange dots show candidate model scores.</p>
+  </section>
+
+  
+<section class="panel">
+  <h2>NLU task ranks</h2>
+  <div class="table-wrap">
+    <table class="rank-table">
+      <thead><tr><th>Model</th><th>ZhoBLiMP</th><th>AFQMC</th><th>OCNLI</th><th>TNEWS</th><th>CLUEWSC2020</th></tr></thead>
+      <tbody><tr><th>gpu2</th><td style="--strength:34.8%"><strong>70.07</strong><small>rank 16/25</small></td><td style="--strength:69.6%"><strong>69.02</strong><small>rank 8/25</small></td><td style="--strength:26.1%"><strong>56.20</strong><small>rank 19/25</small></td><td style="--strength:13.0%"><strong>50.25</strong><small>rank 21/25</small></td><td style="--strength:73.9%"><strong>64.14</strong><small>rank 7/25</small></td></tr><tr><th>gpu3</th><td style="--strength:34.8%"><strong>68.32</strong><small>rank 17/25</small></td><td style="--strength:8.7%"><strong>68.95</strong><small>rank 23/25</small></td><td style="--strength:34.8%"><strong>57.86</strong><small>rank 16/25</small></td><td style="--strength:13.0%"><strong>49.97</strong><small>rank 22/25</small></td><td style="--strength:26.1%"><strong>63.49</strong><small>rank 19/25</small></td></tr></tbody>
+    </table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Hanzi task ranks</h2>
+  <div class="table-wrap">
+    <table class="rank-table">
+      <thead><tr><th>Model</th><th>Hanzi structure</th><th>Hanzi pinyin</th></tr></thead>
+      <tbody><tr><th>gpu2</th><td style="--strength:73.9%"><strong>55.15</strong><small>rank 8/25</small></td><td style="--strength:100.0%"><strong>96.40</strong><small>rank 2/25</small></td></tr><tr><th>gpu3</th><td style="--strength:73.9%"><strong>55.25</strong><small>rank 7/25</small></td><td style="--strength:100.0%"><strong>96.45</strong><small>rank 1/25</small></td></tr></tbody>
+    </table>
+  </div>
+</section>
+<section class="panel">
+  <h2>Cog task ranks</h2>
+  <div class="table-wrap">
+    <table class="rank-table">
+      <thead><tr><th>Model</th><th>Word fMRI</th><th>fMRI</th></tr></thead>
+      <tbody><tr><th>gpu2</th><td style="--strength:56.5%"><strong>55.70</strong><small>rank 12/25</small></td><td style="--strength:39.1%"><strong>8.84</strong><small>rank 16/25</small></td></tr><tr><th>gpu3</th><td style="--strength:56.5%"><strong>55.70</strong><small>rank 11/25</small></td><td style="--strength:39.1%"><strong>8.85</strong><small>rank 15/25</small></td></tr></tbody>
+    </table>
+  </div>
+</section>
+</main>
+</body>
+</html>
